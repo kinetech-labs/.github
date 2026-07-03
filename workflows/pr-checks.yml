@@ -1,0 +1,27 @@
+name: PR Checks
+
+on:
+  pull_request:
+
+jobs:
+  validate-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check branch name
+        run: |
+          echo "Branch: $GITHUB_HEAD_REF"
+
+          if [[ "$GITHUB_HEAD_REF" == "main" ]]; then
+            echo "❌ Invalid branch name"
+            exit 1
+          fi
+
+      - name: Ensure PR is not empty
+        run: |
+          if [ -z "${{ github.event.pull_request.title }}" ]; then
+            echo "❌ PR title missing"
+            exit 1
+          fi
