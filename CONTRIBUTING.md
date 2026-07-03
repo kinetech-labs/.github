@@ -59,3 +59,26 @@ This guide defines how we collaborate across Kinetech Labs repositories.
 
 - All changes must be tested locally
 - Do not rely only on CI
+
+---
+
+## Commit Convention
+
+We follow Conventional Commits.
+
+### Format
+
+type(scope): short description
+
+### Examples
+
+feat(auth): add login flow
+fix(api): resolve timeout issue
+chore(ci): update workflows
+refactor(db): simplify query logic
+
+### Rules
+
+- Use present tense ("add", not "added")
+- Keep messages short and meaningful
+- One change per commit when possible
