@@ -53,6 +53,45 @@ jobs:
               ;;
           esac
 
+      - name: Build Discord payload
+        run: |
+          cat > payload.json <<EOF
+          {
+            "username": "Kinetech Automation",
+            "embeds": [
+              {
+                "title": "${{ inputs.title }}",
+                "description": "${{ inputs.description }}",
+                "url": "${{ inputs.url }}",
+                "color": ${{ steps.color.outputs.value }},
+                "fields": [
+                  {
+                    "name": "Repository",
+                    "value": "${{ github.repository }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Triggered By",
+                    "value": "${{ github.actor }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Branch",
+                    "value": "${{ github.ref_name }}",
+                    "inline": true
+                  }
+                ],
+                "footer": {
+                  "text": "Kinetech Labs"
+                }
+              }
+            ]
+          }
+          EOF
+
+      - name: Show payload
+        run: cat payload.json
+
       - name: Send Notification
         env:
           WEBHOOK: ${{ secrets.webhook }}
