@@ -4,66 +4,63 @@ on:
   workflow_call:
     inputs:
       status:
-        description: Notification status
         required: true
         type: string
-
       title:
-        description: Notification title
         required: true
         type: string
-
       description:
-        description: Notification description
         required: true
         type: string
-
       url:
-        description: GitHub URL
         required: true
         type: string
 
     secrets:
       webhook:
-        description: Webhook URL
         required: true
 
 jobs:
   notify:
-    name: Send Notification
     runs-on: ubuntu-latest
 
     steps:
-      - name: Determine Embed Color
-        id: color
+      - name: Build payload
+        id: payload
         shell: bash
         run: |
           case "${{ inputs.status }}" in
             success)
-              echo "value=5763719" >> $GITHUB_OUTPUT
-              ;;
-            failure)
-              echo "value=15548997" >> $GITHUB_OUTPUT
+              COLOR=3066993
+              ICON="🟢"
+              STATUS="✅ Success"
               ;;
             warning)
-              echo "value=16776960" >> $GITHUB_OUTPUT
+              COLOR=16776960
+              ICON="🟡"
+              STATUS="⚠️ Warning"
+              ;;
+            info)
+              COLOR=3447003
+              ICON="🔵"
+              STATUS="ℹ️ Information"
               ;;
             *)
-              echo "value=3447003" >> $GITHUB_OUTPUT
+              COLOR=15158332
+              ICON="🔴"
+              STATUS="❌ Failure"
               ;;
           esac
 
-      - name: Build Discord payload
-        run: |
           cat > payload.json <<EOF
           {
-            "username": "Kinetech Automation",
+            "username": "Kinetech Labs Bot",
             "embeds": [
               {
-                "title": "${{ inputs.title }}",
+                "title": "$ICON ${{ inputs.title }}",
                 "description": "${{ inputs.description }}",
+                "color": $COLOR,
                 "url": "${{ inputs.url }}",
-                "color": ${{ steps.color.outputs.value }},
                 "fields": [
                   {
                     "name": "Repository",
@@ -71,28 +68,45 @@ jobs:
                     "inline": true
                   },
                   {
-                    "name": "Triggered By",
-                    "value": "${{ github.actor }}",
+                    "name": "Workflow",
+                    "value": "${{ github.workflow }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Status",
+                    "value": "$STATUS",
                     "inline": true
                   },
                   {
                     "name": "Branch",
                     "value": "${{ github.ref_name }}",
                     "inline": true
+                  },
+                  {
+                    "name": "Actor",
+                    "value": "${{ github.actor }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Event",
+                    "value": "${{ github.event_name }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Run",
+                    "value": "[#${{ github.run_number }}](${{ inputs.url }})",
+                    "inline": false
                   }
                 ],
                 "footer": {
-                  "text": "Powered by Kinetech Labs"
+                  "text": "Kinetech Labs • GitHub Actions"
                 }
               }
             ]
           }
           EOF
 
-      - name: Show payload
-        run: cat payload.json
-
-      - name: Send Notification
+      - name: Send notification
         env:
           WEBHOOK: ${{ secrets.webhook }}
         run: |
