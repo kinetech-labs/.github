@@ -1,7 +1,7 @@
 name: PR Checks
 
 on:
-  pull_request:
+  workflow_call:
 
 jobs:
   validate-pr:
@@ -25,3 +25,19 @@ jobs:
             echo "❌ PR title missing"
             exit 1
           fi
+
+notify:
+  name: Notify
+  needs: [validate-pr]
+  if: always()
+
+  uses: kinetech-labs/.github/.github/workflows/notify.yml@main
+
+  with:
+    status: ${{ needs.validate-pr.result == 'success' && 'success' || 'failure' }}
+    title: "Pull Request Validation"
+    description: ${{ needs.validate-pr.result == 'success' && 'PR validation passed.' || 'PR validation failed.' }}
+    url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  secrets:
+    webhook: ${{ secrets.DISCORD_AUTOMATION_WEBHOOK }}

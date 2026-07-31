@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
+  workflow_call:
 
 jobs:
   guard:
@@ -22,4 +19,20 @@ jobs:
   run-common:
     name: Run common setup and tooling
     needs: [guard]
-    uses: ./.github/workflows/common-setup.yml
+    uses: kinetech-labs/.github/.github/workflows/common-setup.yml@main
+
+notify:
+  name: Notify
+  needs: [guard, run-common]
+  if: always()
+
+  uses: kinetech-labs/.github/.github/workflows/notify.yml@main
+
+  with:
+    status: ${{ needs.run-common.result == 'success' && 'success' || 'failure' }}
+    title: "CI"
+    description: ${{ needs.run-common.result == 'success' && 'CI completed successfully.' || 'CI failed.' }}
+    url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  secrets:
+    webhook: ${{ secrets.DISCORD_AUTOMATION_WEBHOOK }}

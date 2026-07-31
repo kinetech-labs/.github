@@ -1,9 +1,9 @@
 name: Code Quality
 
 on:
-  pull_request:
+  workflow_call:
 
 jobs:
   quality:
     name: Code Quality (reusable)
-    uses: ./.github/workflows/common-setup.yml
+    uses: kinetech-labs/.github/.github/workflows/common-setup.yml@main

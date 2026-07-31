@@ -1,9 +1,7 @@
 name: Security Scan
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_call:
 
 jobs:
   guard:
@@ -24,7 +22,7 @@ jobs:
   common:
     name: Common setup
     needs: [guard]
-    uses: ./.github/workflows/common-setup.yml
+    uses: kinetech-labs/.github/.github/workflows/common-setup.yml@main
 
   scan:
     name: Security scan
@@ -43,3 +41,19 @@ jobs:
           else
             echo "No recognized project files for security scanning"
           fi
+
+notify:
+  name: Notify
+  needs: [guard, common, scan]
+  if: always() && needs.scan.result != 'success'
+
+  uses: kinetech-labs/.github/.github/workflows/notify.yml@main
+
+  with:
+    status: failure
+    title: "Security Scan Failed"
+    description: "Security scan detected issues."
+    url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  secrets:
+    webhook: ${{ secrets.DISCORD_ALERTS_WEBHOOK }}

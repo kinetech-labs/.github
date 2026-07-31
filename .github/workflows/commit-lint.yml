@@ -1,7 +1,7 @@
 name: Commit Message Lint
 
 on:
-  pull_request:
+  workflow_call:
 
 jobs:
   commitlint:

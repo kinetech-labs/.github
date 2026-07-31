@@ -67,7 +67,7 @@ jobs:
                 "fields": [
                   {
                     "name": "Repository",
-                    "value": "${{ github.repository }}",
+                    "value": "${{ github.event.repository.name }}",
                     "inline": true
                   },
                   {
@@ -82,7 +82,7 @@ jobs:
                   }
                 ],
                 "footer": {
-                  "text": "Kinetech Labs"
+                  "text": "Powered by Kinetech Labs"
                 }
               }
             ]
