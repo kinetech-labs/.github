@@ -1,0 +1,93 @@
+name: Notify
+
+on:
+  workflow_call:
+    inputs:
+      status:
+        description: Notification status
+        required: true
+        type: string
+
+      title:
+        description: Notification title
+        required: true
+        type: string
+
+      description:
+        description: Notification description
+        required: true
+        type: string
+
+      url:
+        description: GitHub URL
+        required: true
+        type: string
+
+    secrets:
+      webhook:
+        description: Webhook URL
+        required: true
+
+jobs:
+  notify:
+    name: Send Notification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Determine Embed Color
+        id: color
+        shell: bash
+        run: |
+          case "${{ inputs.status }}" in
+            success)
+              echo "value=5763719" >> $GITHUB_OUTPUT
+              ;;
+            failure)
+              echo "value=15548997" >> $GITHUB_OUTPUT
+              ;;
+            warning)
+              echo "value=16776960" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "value=3447003" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Send Discord Notification
+        env:
+          WEBHOOK: ${{ secrets.webhook }}
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "username":"Kinetech Automation",
+              "embeds":[
+                {
+                  "title":"${{ inputs.title }}",
+                  "description":"${{ inputs.description }}",
+                  "url":"${{ inputs.url }}",
+                  "color":${{ steps.color.outputs.value }},
+                  "fields":[
+                    {
+                      "name":"Repository",
+                      "value":"${{ github.repository }}",
+                      "inline":true
+                    },
+                    {
+                      "name":"Triggered By",
+                      "value":"${{ github.actor }}",
+                      "inline":true
+                    },
+                    {
+                      "name":"Branch",
+                      "value":"${{ github.ref_name }}",
+                      "inline":true
+                    }
+                  ],
+                  "footer":{
+                    "text":"Kinetech Labs"
+                  },
+                }
+              ]
+            }' \
+            "$WEBHOOK"
