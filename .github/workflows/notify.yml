@@ -53,41 +53,12 @@ jobs:
               ;;
           esac
 
-      - name: Send Discord Notification
+      - name: Send Notification
         env:
           WEBHOOK: ${{ secrets.webhook }}
         run: |
-          curl -H "Content-Type: application/json" \
+          curl \
+            -H "Content-Type: application/json" \
             -X POST \
-            -d '{
-              "username":"Kinetech Automation",
-              "embeds":[
-                {
-                  "title":"${{ inputs.title }}",
-                  "description":"${{ inputs.description }}",
-                  "url":"${{ inputs.url }}",
-                  "color":${{ steps.color.outputs.value }},
-                  "fields":[
-                    {
-                      "name":"Repository",
-                      "value":"${{ github.repository }}",
-                      "inline":true
-                    },
-                    {
-                      "name":"Triggered By",
-                      "value":"${{ github.actor }}",
-                      "inline":true
-                    },
-                    {
-                      "name":"Branch",
-                      "value":"${{ github.ref_name }}",
-                      "inline":true
-                    }
-                  ],
-                  "footer":{
-                    "text":"Kinetech Labs"
-                  },
-                }
-              ]
-            }' \
+            --data @payload.json \
             "$WEBHOOK"
