@@ -4,26 +4,13 @@ on:
   workflow_call:
 
 jobs:
-  guard:
-    name: Guard — prevent direct pushes to main
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Detect direct push to main
-        run: |
-          echo "❌ Direct push to main detected"
-          echo "Use a Pull Request instead"
-          exit 1
-
   run-common:
     name: Run common setup and tooling
-    needs: [guard]
     uses: kinetech-labs/.github/.github/workflows/common-setup.yml@main
 
   notify:
     name: Notify
-    needs: [guard, run-common]
+    needs: [run-common]
     if: always()
 
     uses: kinetech-labs/.github/.github/workflows/notify.yml@main

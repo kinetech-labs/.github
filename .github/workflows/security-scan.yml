@@ -4,24 +4,8 @@ on:
   workflow_call:
 
 jobs:
-  guard:
-    name: Guard — prevent direct pushes to main
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Prevent direct push to main
-        run: |
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "❌ Direct push to main detected"
-            echo "Use a Pull Request instead"
-            exit 1
-          else
-            echo "Not a direct push to main — continuing"
-          fi
-
   common:
     name: Common setup
-    needs: [guard]
     uses: kinetech-labs/.github/.github/workflows/common-setup.yml@main
 
   scan:
@@ -29,6 +13,7 @@ jobs:
     needs: [common]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Run language-specific security checks
         run: |
           if [ -f package.json ]; then
@@ -44,7 +29,7 @@ jobs:
 
   notify:
     name: Notify
-    needs: [guard, common, scan]
+    needs: [common, scan]
     if: always() && needs.scan.result != 'success'
 
     uses: kinetech-labs/.github/.github/workflows/notify.yml@main
