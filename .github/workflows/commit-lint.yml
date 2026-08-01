@@ -14,7 +14,7 @@ jobs:
 
       - name: Validate commit messages
         run: |
-          git log origin/main..HEAD --pretty=format:%s > commits.txt
+          git log --no-merges origin/main..HEAD --pretty=format:%s > commits.txt
 
           echo "Checking commit messages..."
 
