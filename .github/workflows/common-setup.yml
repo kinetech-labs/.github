@@ -10,7 +10,7 @@ jobs:
       has_node: ${{ steps.check.outputs.has_node }}
       has_go: ${{ steps.check.outputs.has_go }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Detect npm lockfile
         id: lockfile
@@ -22,13 +22,13 @@ jobs:
           fi
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: ${{ steps.lockfile.outputs.found == 'true' && 'npm' || '' }}
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
           go-version: "1.21"
 
