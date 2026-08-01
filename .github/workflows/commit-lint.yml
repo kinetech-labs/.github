@@ -18,9 +18,13 @@ jobs:
 
           echo "Checking commit messages..."
 
-          while read commit; do
-            echo "$commit" | grep -Eq "^(feat|fix|chore|docs|refactor|test|ci)(\(.+\))?: .+"
-            if [ $? -ne 0 ]; then
+          # `git log --pretty=format:%s` does not emit a trailing newline after
+          # the last entry, so a plain `while read` silently drops the final
+          # (most recent) commit. The `|| [ -n "$commit" ]` clause makes sure
+          # that last line is still processed.
+          while IFS= read -r commit || [ -n "$commit" ]; do
+            [ -z "$commit" ] && continue
+            if ! echo "$commit" | grep -Eq "^(feat|fix|chore|docs|refactor|test|ci)(\(.+\))?: .+"; then
               echo "❌ Invalid commit message: $commit"
               exit 1
             fi

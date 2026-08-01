@@ -12,11 +12,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Detect npm lockfile
+        id: lockfile
+        run: |
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ] || [ -f yarn.lock ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: 22
+          cache: ${{ steps.lockfile.outputs.found == 'true' && 'npm' || '' }}
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -40,7 +49,12 @@ jobs:
       - name: Install dependencies
         run: |
           if [ -f package.json ]; then
-            npm ci --no-audit --no-fund
+            if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+              npm ci --no-audit --no-fund
+            else
+              echo "No lockfile found — falling back to npm install"
+              npm install --no-audit --no-fund
+            fi
           else
             echo "No package.json — skipping npm install"
           fi

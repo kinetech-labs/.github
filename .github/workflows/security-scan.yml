@@ -42,18 +42,18 @@ jobs:
             echo "No recognized project files for security scanning"
           fi
 
-notify:
-  name: Notify
-  needs: [guard, common, scan]
-  if: always() && needs.scan.result != 'success'
+  notify:
+    name: Notify
+    needs: [guard, common, scan]
+    if: always() && needs.scan.result != 'success'
 
-  uses: kinetech-labs/.github/.github/workflows/notify.yml@main
+    uses: kinetech-labs/.github/.github/workflows/notify.yml@main
 
-  with:
-    status: failure
-    title: "Security Scan Failed"
-    description: "Security scan detected issues."
-    url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    with:
+      status: failure
+      title: "Security Scan Failed"
+      description: "Security scan detected issues."
+      url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-  secrets:
-    webhook: ${{ secrets.DISCORD_ALERTS_WEBHOOK }}
+    secrets:
+      webhook: ${{ secrets.DISCORD_ALERTS_WEBHOOK }}
