@@ -52,59 +52,72 @@ jobs:
               ;;
           esac
 
-          cat > payload.json <<EOF
-          {
-            "username": "Kinetech Labs Bot",
-            "embeds": [
-              {
-                "title": "$ICON ${{ inputs.title }}",
-                "description": "${{ inputs.description }}",
-                "color": $COLOR,
-                "url": "${{ inputs.url }}",
-                "fields": [
+          COMMIT_SHA="${{ github.sha }}"
+          COMMIT_SHORT="${COMMIT_SHA:0:7}"
+          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${COMMIT_SHA}"
+
+          # Push events carry a commit message; PRs don't, so fall back to the PR title.
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          if [ -z "$COMMIT_MSG" ]; then
+            COMMIT_MSG="${{ github.event.pull_request.title }}"
+          fi
+          COMMIT_MSG=$(echo "$COMMIT_MSG" | head -1)
+
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          AVATAR_URL="${{ github.event.sender.avatar_url }}"
+
+          jq -n \
+            --arg icon "$ICON" \
+            --arg title "${{ inputs.title }}" \
+            --arg description "${{ inputs.description }}" \
+            --argjson color "$COLOR" \
+            --arg url "${{ inputs.url }}" \
+            --arg repo "${{ github.event.repository.name }}" \
+            --arg workflow "${{ github.workflow }}" \
+            --arg status "$STATUS" \
+            --arg branch "${{ github.ref_name }}" \
+            --arg actor "${{ github.actor }}" \
+            --arg avatar "$AVATAR_URL" \
+            --arg event "${{ github.event_name }}" \
+            --arg commitShort "$COMMIT_SHORT" \
+            --arg commitUrl "$COMMIT_URL" \
+            --arg commitMsg "$COMMIT_MSG" \
+            --arg prNumber "$PR_NUMBER" \
+            --arg prTitle "$PR_TITLE" \
+            --arg prUrl "$PR_URL" \
+            --arg runNumber "${{ github.run_number }}" \
+            '
+            {
+              username: "Kinetech Labs Bot",
+              embeds: [
+                (
                   {
-                    "name": "Repository",
-                    "value": "${{ github.event.repository.name }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "Workflow",
-                    "value": "${{ github.workflow }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "Status",
-                    "value": "$STATUS",
-                    "inline": true
-                  },
-                  {
-                    "name": "Branch",
-                    "value": "${{ github.ref_name }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "Actor",
-                    "value": "${{ github.actor }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "Event",
-                    "value": "${{ github.event_name }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "Run",
-                    "value": "[#${{ github.run_number }}](${{ inputs.url }})",
-                    "inline": false
+                    title: "\($icon) \($title)",
+                    description: $description,
+                    color: $color,
+                    url: $url,
+                    fields: (
+                      [
+                        {name: "Repository", value: $repo, inline: true},
+                        {name: "Workflow", value: $workflow, inline: true},
+                        {name: "Status", value: $status, inline: true},
+                        {name: "Branch", value: $branch, inline: true},
+                        {name: "Actor", value: $actor, inline: true},
+                        {name: "Event", value: $event, inline: true},
+                        {name: "Commit", value: (if $commitMsg == "" then "[`\($commitShort)`](\($commitUrl))" else "[`\($commitShort)`](\($commitUrl)) — \($commitMsg)" end), inline: false}
+                      ]
+                      + (if $prNumber != "" then [{name: "Pull Request", value: "[#\($prNumber): \($prTitle)](\($prUrl))", inline: false}] else [] end)
+                      + [{name: "Run", value: "[#\($runNumber)](\($url))", inline: false}]
+                    ),
+                    footer: {text: "Kinetech Labs • GitHub Actions"}
                   }
-                ],
-                "footer": {
-                  "text": "Kinetech Labs • GitHub Actions"
-                }
-              }
-            ]
-          }
-          EOF
+                  + (if $avatar != "" then {thumbnail: {url: $avatar}} else {} end)
+                )
+              ]
+            }
+            ' > payload.json
 
       - name: Send notification
         env:
