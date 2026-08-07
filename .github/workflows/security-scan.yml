@@ -2,24 +2,47 @@ name: Security Scan
 
 on:
   workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing the project to scan, relative to repo root."
+        required: false
+        type: string
+        default: "."
 
 jobs:
   common:
     name: Common setup
     uses: kinetech-labs/.github/.github/workflows/common-setup.yml@main
+    with:
+      working-directory: ${{ inputs.working-directory }}
 
   scan:
     name: Security scan
     needs: [common]
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        if: needs.common.outputs.has_node == 'true' && hashFiles(format('{0}/pnpm-lock.yaml', inputs.working-directory)) != ''
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Run language-specific security checks
         run: |
-          if [ -f package.json ]; then
-            echo "Running npm audit"
-            npm audit --audit-level=high || true
-          elif [ -f go.mod ]; then
+          if [ "${{ needs.common.outputs.has_node }}" = "true" ]; then
+            if [ -f pnpm-lock.yaml ]; then
+              echo "Running pnpm audit"
+              pnpm audit --audit-level high || true
+            else
+              echo "Running npm audit"
+              npm audit --audit-level=high || true
+            fi
+          elif [ "${{ needs.common.outputs.has_go }}" = "true" ]; then
             echo "Go project detected — running govulncheck"
             go install golang.org/x/vuln/cmd/govulncheck@latest
             govulncheck ./... || true

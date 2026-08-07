@@ -2,8 +2,16 @@ name: Code Quality
 
 on:
   workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing the project to check, relative to repo root."
+        required: false
+        type: string
+        default: "."
 
 jobs:
   quality:
     name: Code Quality (reusable)
     uses: kinetech-labs/.github/.github/workflows/common-setup.yml@main
+    with:
+      working-directory: ${{ inputs.working-directory }}

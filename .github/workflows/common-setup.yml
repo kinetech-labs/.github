@@ -2,68 +2,109 @@ name: Common Setup
 
 on:
   workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing the project to set up, relative to repo root."
+        required: false
+        type: string
+        default: "."
+    outputs:
+      has_node:
+        value: ${{ jobs.setup.outputs.has_node }}
+      has_go:
+        value: ${{ jobs.setup.outputs.has_go }}
 
 jobs:
   setup:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
     outputs:
       has_node: ${{ steps.check.outputs.has_node }}
       has_go: ${{ steps.check.outputs.has_go }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Detect npm lockfile
-        id: lockfile
-        run: |
-          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ] || [ -f yarn.lock ]; then
-            echo "found=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "found=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: ${{ steps.lockfile.outputs.found == 'true' && 'npm' || '' }}
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.21"
-
-      - id: check
+      - name: Detect project type & package manager
+        id: check
         run: |
           if [ -f package.json ]; then
-            echo "has_node=true" >> $GITHUB_OUTPUT
+            echo "has_node=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_node=false" >> $GITHUB_OUTPUT
+            echo "has_node=false" >> "$GITHUB_OUTPUT"
           fi
 
           if [ -f go.mod ]; then
-            echo "has_go=true" >> $GITHUB_OUTPUT
+            echo "has_go=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_go=false" >> $GITHUB_OUTPUT
+            echo "has_go=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install dependencies
-        run: |
-          if [ -f package.json ]; then
-            if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
-              npm ci --no-audit --no-fund
-            else
-              echo "No lockfile found — falling back to npm install"
-              npm install --no-audit --no-fund
-            fi
+          if [ -f pnpm-lock.yaml ]; then
+            echo "pm=pnpm" >> "$GITHUB_OUTPUT"
+            echo "lockfile=pnpm-lock.yaml" >> "$GITHUB_OUTPUT"
+          elif [ -f yarn.lock ]; then
+            echo "pm=yarn" >> "$GITHUB_OUTPUT"
+            echo "lockfile=yarn.lock" >> "$GITHUB_OUTPUT"
+          elif [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            echo "pm=npm" >> "$GITHUB_OUTPUT"
+            echo "lockfile=package-lock.json" >> "$GITHUB_OUTPUT"
           else
-            echo "No package.json — skipping npm install"
+            echo "pm=npm" >> "$GITHUB_OUTPUT"
+            echo "lockfile=" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Setup pnpm
+        if: steps.check.outputs.has_node == 'true' && steps.check.outputs.pm == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        if: steps.check.outputs.has_node == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: ${{ steps.check.outputs.lockfile != '' && steps.check.outputs.pm || '' }}
+          cache-dependency-path: ${{ steps.check.outputs.lockfile != '' && format('{0}/{1}', inputs.working-directory, steps.check.outputs.lockfile) || '' }}
+
+      - name: Setup Go
+        if: steps.check.outputs.has_go == 'true'
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.21"
+          cache-dependency-path: ${{ format('{0}/go.sum', inputs.working-directory) }}
+
+      - name: Install dependencies
+        if: steps.check.outputs.has_node == 'true'
+        run: |
+          case "${{ steps.check.outputs.pm }}" in
+            pnpm)
+              pnpm install --frozen-lockfile
+              ;;
+            yarn)
+              yarn install --frozen-lockfile
+              ;;
+            npm)
+              if [ -n "${{ steps.check.outputs.lockfile }}" ]; then
+                npm ci --no-audit --no-fund
+              else
+                echo "No lockfile found — falling back to npm install"
+                npm install --no-audit --no-fund
+              fi
+              ;;
+          esac
 
       - name: Type check / Go vet
         run: |
-          if [ -f package.json ]; then
-            npm run typecheck || true
-          elif [ -f go.mod ]; then
+          if [ "${{ steps.check.outputs.has_node }}" = "true" ]; then
+            if grep -Eq '"typecheck"\s*:' package.json; then
+              ${{ steps.check.outputs.pm }} run typecheck
+            else
+              echo "No typecheck script — skipping"
+            fi
+          elif [ "${{ steps.check.outputs.has_go }}" = "true" ]; then
             go vet ./...
           else
             echo "No typecheck configured"
@@ -71,18 +112,16 @@ jobs:
 
       - name: Lint
         run: |
-          if [ -f package.json ]; then
+          if [ "${{ steps.check.outputs.has_node }}" = "true" ]; then
             if grep -Eq '"next"\s*:' package.json; then
               echo "Next.js project detected — running next lint"
               npx next lint || true
-            elif grep -Eq '"react"\s*:' package.json; then
-              echo "React project detected — running npm lint"
-              npm run lint || true
+            elif grep -Eq '"lint"\s*:' package.json; then
+              ${{ steps.check.outputs.pm }} run lint || true
             else
-              echo "Node project detected — running npm lint"
-              npm run lint || true
+              echo "No lint script configured"
             fi
-          elif [ -f go.mod ]; then
+          elif [ "${{ steps.check.outputs.has_go }}" = "true" ]; then
             curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.59.0 || true
             $(go env GOPATH)/bin/golangci-lint run ./... || true
           else
@@ -91,9 +130,13 @@ jobs:
 
       - name: Test
         run: |
-          if [ -f package.json ]; then
-            npm test --if-present
-          elif [ -f go.mod ]; then
+          if [ "${{ steps.check.outputs.has_node }}" = "true" ]; then
+            if grep -Eq '"test"\s*:' package.json; then
+              ${{ steps.check.outputs.pm }} run test
+            else
+              echo "No test script — skipping"
+            fi
+          elif [ "${{ steps.check.outputs.has_go }}" = "true" ]; then
             go test ./...
           else
             echo "No tests to run"
@@ -101,14 +144,16 @@ jobs:
 
       - name: Build
         run: |
-          if [ -f package.json ]; then
+          if [ "${{ steps.check.outputs.has_node }}" = "true" ]; then
             if grep -Eq '"next"\s*:' package.json; then
               echo "Next.js project detected — running next build"
               npx next build || true
+            elif grep -Eq '"build"\s*:' package.json; then
+              ${{ steps.check.outputs.pm }} run build
             else
-              npm run build --if-present
+              echo "No build script — skipping"
             fi
-          elif [ -f go.mod ]; then
+          elif [ "${{ steps.check.outputs.has_go }}" = "true" ]; then
             go build ./... || true
           else
             echo "No build step configured"

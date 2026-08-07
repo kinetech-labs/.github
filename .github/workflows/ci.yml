@@ -2,11 +2,19 @@ name: CI
 
 on:
   workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing the project to build/test, relative to repo root."
+        required: false
+        type: string
+        default: "."
 
 jobs:
   run-common:
     name: Run common setup and tooling
     uses: kinetech-labs/.github/.github/workflows/common-setup.yml@main
+    with:
+      working-directory: ${{ inputs.working-directory }}
 
   notify:
     name: Notify
